@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Entrée">
+<meta name="theme-color" content="#0b0d12">
+<title>Entrée</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #151922;
+    --panel2: #1c212c;
+    --line: #262c39;
+    --text: #e8ebf1;
+    --dim: #8a93a6;
+    --ok: #3ccf7a;
+    --warn: #f5a524;
+    --bad: #f0524f;
+    --info: #5aa9f0;
+    --accent: #7cc4ff;
+    --gap: 10px;
+    --r: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font: 15px/1.3 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-text-size-adjust: 100%;
+    overflow: hidden;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; text-align: left; padding: 0; }
+  .app {
+    height: 100%;
+    padding: max(var(--gap), env(safe-area-inset-top)) max(var(--gap), env(safe-area-inset-right)) max(var(--gap), env(safe-area-inset-bottom)) max(var(--gap), env(safe-area-inset-left));
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "top top"
+      "transit wx"
+      "transit media"
+      "home home";
+    gap: var(--gap);
+  }
+  .panel { background: var(--panel); border-radius: var(--r); overflow: hidden; min-height: 0; min-width: 0; position: relative; }
+  .muted { color: var(--dim); }
+  .small { font-size: 12px; }
+
+  /* ---------- Top bar ---------- */
+  .top { grid-area: top; display: flex; align-items: center; gap: 18px; padding: 4px 6px 0; min-width: 0; }
+  .clock { font-size: 64px; font-weight: 200; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .date { font-size: 18px; }
+  .date .muted { font-size: 13px; display: block; margin-top: 2px; }
+  .now { margin-left: auto; display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .now .ico { font-size: 46px; line-height: 1; }
+  .now .t { font-size: 40px; font-weight: 300; line-height: 1; }
+  .now .d { font-size: 14px; }
+  .gear { font-size: 24px; color: var(--dim); padding: 8px 4px 8px 10px; }
+
+  /* ---------- Transit ---------- */
+  .transit { grid-area: transit; display: flex; flex-direction: column; gap: var(--gap); min-height: 0; min-width: 0; }
+  .strip { flex: none; display: flex; align-items: center; gap: 6px; padding: 7px 8px; }
+  .chip { display: flex; align-items: center; gap: 5px; padding: 3px 7px 3px 3px; border-radius: 9px; background: var(--panel2); }
+  .chip .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .strip .meta { margin-left: auto; font-size: 11px; color: var(--dim); text-align: right; line-height: 1.25; }
+  .badge { flex: none; min-width: 34px; height: 26px; padding: 0 6px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .badge.round { border-radius: 13px; min-width: 26px; }
+  .cards { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: var(--gap); }
+  .card { display: flex; flex-direction: column; padding: 8px 10px 6px; }
+  .ch { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+  .cn { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cu { margin-left: auto; font-size: 11px; color: var(--dim); white-space: nowrap; }
+  .cu.stale { color: var(--warn); }
+  .rows { flex: 1; min-height: 0; overflow: hidden; }
+  .dr { display: flex; align-items: center; gap: 9px; padding: 5px 0; border-top: 1px solid var(--line); }
+  .dr:first-child { border-top: 0; }
+  .dd { flex: 1; min-width: 0; }
+  .dest { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tm { flex: none; text-align: right; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .tm b { font-size: 24px; font-weight: 600; color: var(--ok); }
+  .tm b.late { color: var(--warn); }
+  .tm b.gone { color: var(--bad); font-size: 15px; }
+  .tm small { font-size: 12px; color: var(--dim); margin-left: 2px; }
+  .tm .nx { display: block; font-size: 12px; color: var(--dim); }
+  .tm .nx s { color: var(--bad); }
+  .none { color: var(--dim); font-size: 13px; padding: 8px 0; }
+  .warn { flex: none; display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 4px; padding: 5px 8px; border-radius: 8px; font-size: 12px; font-weight: 500; }
+  .warn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .warn.l3 { background: rgba(240,82,79,.18); color: #ff8a87; }
+  .warn.l2 { background: rgba(245,165,36,.16); color: #ffc15e; }
+  .warn.l1 { background: rgba(90,169,240,.14); color: #8cc4f5; }
+  .s-ok { color: var(--ok); } .s-warn { color: var(--warn); } .s-bad { color: var(--bad); } .s-info { color: var(--info); } .s-unk { color: var(--dim); }
+
+  /* ---------- Weather ---------- */
+  .wx { grid-area: wx; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px; }
+  .rain-head { font-size: 14px; display: flex; justify-content: space-between; gap: 8px; }
+  .rain { display: flex; align-items: flex-end; gap: 4px; height: 26px; }
+  .rain div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+  .rain i { display: block; background: var(--info); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .9; }
+  .rain i.zero { background: var(--line); }
+  .rain-lbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-top: -6px; }
+  .hours, .days { display: flex; }
+  .hours > div, .days > div { flex: 1; text-align: center; min-width: 0; }
+  .hours .h, .days .h { font-size: 12px; color: var(--dim); }
+  .hours .e { font-size: 18px; line-height: 1.3; }
+  .hours .v { font-size: 14px; }
+  .p { font-size: 11px; color: var(--info); min-height: 14px; }
+  .days { border-top: 1px solid var(--line); padding-top: 8px; }
+  .days .e { font-size: 20px; line-height: 1.3; }
+  .days .v { font-size: 13px; }
+  .days .v b { font-weight: 600; }
+  .days .v span { color: var(--dim); }
+
+  /* ---------- Media (webcam / traffic) ---------- */
+  .media { grid-area: media; display: flex; flex-direction: column; min-height: 200px; }
+  .tabs { display: flex; gap: 6px; padding: 6px 8px; flex: none; }
+  .tab { white-space: nowrap; padding: 6px 11px; border-radius: 999px; background: var(--panel2); color: var(--dim); font-size: 13px; text-decoration: none; }
+  .tab.on { background: var(--accent); color: #08111c; font-weight: 600; }
+  .tab.open { margin-left: auto; color: var(--accent); background: none; }
+  .frame-wrap { flex: 1; position: relative; background: #000; min-height: 0; }
+  .frame-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+  .empty { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--dim); gap: 8px; }
+
+  /* ---------- Home buttons ---------- */
+  .home { grid-area: home; display: flex; gap: var(--gap); overflow-x: auto; }
+  .home::-webkit-scrollbar { display: none; }
+  .hb { flex: 1 0 auto; min-width: 110px; padding: 14px 12px; border-radius: var(--r); background: var(--panel); font-size: 16px; font-weight: 500; text-align: center; white-space: nowrap; }
+  .hb:active { background: var(--panel2); }
+  .hb.sent { background: #1f3a2a; }
+
+  /* ---------- Modal ---------- */
+  .modal { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+  .modal.on { display: flex; }
+  .sheet { background: var(--panel); border-radius: var(--r); width: 100%; max-width: 720px; max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .sheet header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); font-size: 18px; font-weight: 600; }
+  .sheet header button { margin-left: auto; font-size: 15px; font-weight: 500; color: var(--accent); padding: 4px 8px; }
+  .sheet .body { padding: 14px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; -webkit-user-select: text; user-select: text; }
+  .sheet footer { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .btn { padding: 10px 16px; border-radius: 10px; background: var(--panel2); font-weight: 500; text-align: center; }
+  .btn.pri { background: var(--accent); color: #08111c; }
+  .btn.right { margin-left: auto; }
+  .dis { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .dis:last-child { border-bottom: 0; }
+  .dis h4 { margin: 0 0 4px; font-size: 15px; }
+  .dis .when { font-size: 12px; color: var(--dim); margin-bottom: 6px; }
+  .dis p { margin: 0; font-size: 14px; white-space: pre-line; color: #c9cfdb; }
+  .sec { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 14px 0 4px; }
+  .sec:first-child { margin-top: 0; }
+  .f { margin-bottom: 14px; }
+  .f label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 4px; }
+  .f input, .f textarea {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 10px; font: 15px/1.35 -apple-system, "Helvetica Neue", Arial, sans-serif; -webkit-user-select: text; user-select: text;
+  }
+  .f textarea { min-height: 90px; font-family: Menlo, monospace; font-size: 13px; }
+  .f .hint { font-size: 12px; color: var(--dim); margin-top: 4px; }
+  .row2 { display: flex; gap: 8px; }
+  .row2 > * { flex: 1; min-width: 0; }
+  .msg { font-size: 13px; padding: 4px 0; min-height: 20px; }
+
+  /* ---------- Night dimming ---------- */
+  .night { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 2s; z-index: 10; }
+  .night.on { opacity: .72; }
+
+  /* ---------- Portrait ---------- */
+  @media (orientation: portrait) {
+    body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .app {
+      height: auto; min-height: 100%;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 620px auto auto 300px;
+      grid-template-areas: "top" "transit" "home" "wx" "media";
+    }
+    .home { flex-wrap: wrap; }
+  }
+  @media (max-height: 700px) and (orientation: landscape) {
+    .clock { font-size: 52px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date">&nbsp;<span class="muted" id="ephem"></span></div>
+    <div class="now" id="now"></div>
+    <button class="gear" id="gear" aria-label="Réglages">⚙︎</button>
+  </div>
+
+  <section class="transit">
+    <div class="panel strip" id="strip"></div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="panel wx" id="wx"><div class="muted">Météo…</div></section>
+
+  <section class="panel media">
+    <div class="tabs" id="mediaTabs"></div>
+    <div class="frame-wrap" id="mediaFrame"></div>
+  </section>
+
+  <div class="home" id="home"></div>
+</div>
+
+<div class="night" id="night"></div>
+
+<div class="modal" id="lineModal">
+  <div class="sheet">
+    <header><span id="lmTitle"></span><button data-close>Fermer</button></header>
+    <div class="body" id="lmBody"></div>
+  </div>
+</div>
+
+<div class="modal" id="setModal">
+  <div class="sheet">
+    <header>Réglages<button data-close>Annuler</button></header>
+    <div class="body">
+      <div class="f">
+        <label for="sKey">Clé API PRIM (Île-de-France Mobilités)</label>
+        <input id="sKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="hint">Gratuite sur prim.iledefrance-mobilites.fr. Abonnez-la à « Prochains passages (requête unitaire) » et « Info trafic (requête globale) ».</div>
+      </div>
+      <div class="f">
+        <label for="sQuota">Quota quotidien « Prochains passages »</label>
+        <input id="sQuota" type="number" min="100" step="100" inputmode="numeric">
+        <div class="hint">1000 par défaut pour un nouveau compte. Une hausse gratuite peut être demandée sur PRIM (« Ma consommation ») : l’actualisation devient alors plus fréquente.</div>
+      </div>
+      <div class="f">
+        <label for="sStops">Arrêts — une ligne par carte : <code>Nom | zone d’arrêt IDFM ou URL departs.leon.gp | lignes | garder destinations</code></label>
+        <textarea id="sStops" autocapitalize="off" spellcheck="false"></textarea>
+        <div class="hint">Lignes : identifiants IDFM séparés par des virgules (ex. C01742). « Garder destinations » (facultatif) : mots séparés par des virgules, ex. <code>Paris, Massy</code>.</div>
+      </div>
+      <div class="f">
+        <label for="sLines">Lignes suivies (état du trafic) — <code>Libellé | id IDFM | couleur | couleur texte</code></label>
+        <textarea id="sLines" autocapitalize="off" spellcheck="false"></textarea>
+      </div>
+      <div class="row2">
+        <div class="f"><label for="sLoc">Point météo — <code>lat, lon</code></label><input id="sLoc" type="text" inputmode="decimal" autocapitalize="off"></div>
+        <div class="f"><label for="sMap">Centre carte trafic — <code>lat, lon, zoom</code> (facultatif)</label><input id="sMap" type="text" inputmode="decimal" autocapitalize="off"></div>
+      </div>
+      <div class="f">
+        <label for="sCam">Webcam Paris (lien YouTube)</label>
+        <input id="sCam" type="url" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="row2">
+        <div class="f"><label for="sHome">Adresse du domicile</label><input id="sHome" type="text"></div>
+        <div class="f"><label for="sDest">Destination habituelle (« Itinéraire »)</label><input id="sDest" type="text"></div>
+      </div>
+      <div class="f">
+        <label for="sButtons">Boutons maison — <code>Libellé | Nom exact du raccourci</code></label>
+        <textarea id="sButtons" spellcheck="false"></textarea>
+      </div>
+      <div class="f">
+        <label for="sPrimBase">Adresse de l’API PRIM (avancé, pour un relais éventuel)</label>
+        <input id="sPrimBase" type="url" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="f">
+        <label for="sJson">Transférer les réglages (copier ici, coller sur l’autre appareil)</label>
+        <textarea id="sJson" spellcheck="false" placeholder="Coller un export ici puis « Importer »"></textarea>
+        <div class="row2" style="margin-top:6px">
+          <button class="btn" id="sExport">Exporter</button>
+          <button class="btn" id="sImport">Importer</button>
+        </div>
+      </div>
+      <div class="msg" id="sMsg"></div>
+    </div>
+    <footer>
+      <button class="btn" id="sTest">Tester PRIM</button>
+      <button class="btn" id="sReload">Recharger la page</button>
+      <button class="btn pri right" id="sSave">Enregistrer</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================= Config ================= */
+  var STORE = 'hall-dashboard-config-v1';
+  var UI_STORE = 'hall-dashboard-ui-v1';
+  var QUOTA_STORE = 'hall-dashboard-quota-v1';
+  var DEMO = /[?&]demo\b/.test(location.search);
+
+  var DEFAULTS = {
+    primKey: '',
+    primBase: 'https://prim.iledefrance-mobilites.fr/marketplace',
+    quota: 1000,
+    // Personal places are NOT in the code (public repo): they are entered in ⚙︎ Réglages
+    // (or imported from the private config file) and kept in localStorage.
+    location: { lat: 48.8566, lon: 2.3522 },   // weather point; Paris centre until set
+    // stops[].ref = IDFM zone d'arrêt id, a STIF:… MonitoringRef, or a departs.leon.gp URL
+    stops: [],
+    // lines: { label, id (IDFM C0xxxx), color, fg } — status strip + badges
+    lines: [],
+    webcam: '',
+    traffic: { lat: null, lon: null, zoom: 14 },   // map centre; falls back to location
+    home: '',
+    destination: '',
+    buttons: [
+      { label: '💡 Entrée', shortcut: 'Lumière entrée' },
+      { label: '🚪 Je pars', shortcut: 'Je pars' },
+      { label: '🏠 Je rentre', shortcut: 'Je rentre' },
+      { label: '🌙 Bonne nuit', shortcut: 'Bonne nuit' }
+    ],
+    night: { from: 23, to: 6 }
+  };
+
+  function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
+  function deepMerge(base, over) {
+    var out = {}, k;
+    for (k in base) out[k] = isObj(base[k]) ? deepMerge(base[k], {}) : base[k];
+    if (!isObj(over)) return out;
+    for (k in over) {
+      if (isObj(base[k]) && isObj(over[k])) out[k] = deepMerge(base[k], over[k]);
+      else if (over[k] !== undefined) out[k] = over[k];
+    }
+    return out;
+  }
+  function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+
+  function loadConfig(saved) {
+    saved = isObj(saved) ? saved : {};
+    // Older saved shapes: lines matched by name, iframe "screens", full disruptions URL.
+    if (Array.isArray(saved.lines) && saved.lines.some(function (l) { return !/C\d{5}/.test(l.id || ''); })) delete saved.lines;
+    delete saved.screens; delete saved.primUrl;
+    return deepMerge(DEFAULTS, saved);
+  }
+  var DEMO_CFG = {
+    stops: [
+      { name: 'Gare (démo)', ref: '1001', lines: 'C00001', keep: '' },
+      { name: 'Tram (démo)', ref: '1002', lines: 'C00002', keep: '' },
+      { name: 'Bus (démo)',  ref: '1003', lines: 'C00003,C00004', keep: '' },
+      { name: 'RER (démo)',  ref: '1004', lines: 'C00005', keep: '' }
+    ],
+    lines: [
+      { label: 'A',  id: 'C00005', color: '#e3051c', fg: '#ffffff' },
+      { label: 'T9', id: 'C00002', color: '#5b2c86', fg: '#ffffff' },
+      { label: 'R',  id: 'C00001', color: '#f49fb3', fg: '#000000' },
+      { label: '42', id: 'C00003', color: '#0055c8', fg: '#ffffff' },
+      { label: '87', id: 'C00004', color: '#0055c8', fg: '#ffffff' },
+      { label: '7',  id: 'C00006', color: '#f2a4b6', fg: '#000000' }
+    ]
+  };
+  var cfg = loadConfig(lsGet(STORE));
+  if (DEMO) { cfg.stops = DEMO_CFG.stops; cfg.lines = DEMO_CFG.lines; }
+  var ui = deepMerge({ media: 'cam' }, lsGet(UI_STORE));
+
+  /* ================= Helpers ================= */
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function hm(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function todayKey() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseLocal(s) { // Open-Meteo "2026-11-15T14:00", local time
+    var m = /^(\d{4})-(\d\d)-(\d\d)(?:T(\d\d):(\d\d))?/.exec(s);
+    return m ? new Date(+m[1], m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+  }
+  function parsePrim(s) { // disruptions "20261115T143000", local time
+    var m = /^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)?/.exec(s || '');
+    return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) : null;
+  }
+  function norm(s) { return String(s || '').trim().toLowerCase(); }
+  function lineCode(s) { var m = /C\d{5}/.exec(String(s || '')); return m ? m[0] : ''; }
+  function pipeRows(text, keys) {
+    return String(text || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+      var parts = l.split('|').map(function (p) { return p.trim(); }), o = {};
+      keys.forEach(function (k, i) { o[k] = parts[i] || ''; });
+      return o;
+    });
+  }
+  function toRows(arr, keys) {
+    return (arr || []).map(function (o) { return keys.map(function (k) { return o[k] || ''; }).join(' | ').replace(/( \| )+$/, ''); }).join('\n');
+  }
+  function isNightHour(h) { var n = cfg.night; return n.from > n.to ? (h >= n.from || h < n.to) : (h >= n.from && h < n.to); }
+  function lineCfg(id) { for (var i = 0; i < cfg.lines.length; i++) if (cfg.lines[i].id === id) return cfg.lines[i]; return null; }
+  function badge(lc, fallback) {
+    lc = lc || { label: fallback || '?', color: '#3a4256', fg: '#fff' };
+    return '<span class="badge' + (String(lc.label).length <= 2 ? ' round' : '') + '" style="background:' + esc(lc.color || '#3a4256') +
+      ';color:' + esc(lc.fg || '#fff') + '">' + esc(lc.label) + '</span>';
+  }
+
+  /* ================= Clock & night ================= */
+  var DATEFMT = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  var sun = null;
+  var BOOT = Date.now();
+
+  function tickClock() {
+    var d = new Date(), ds = DATEFMT.format(d);
+    $('clock').textContent = hm(d);
+    $('date').firstChild.nodeValue = ds.charAt(0).toUpperCase() + ds.slice(1);
+    $('ephem').textContent = sun ? '☀︎ ' + hm(sun.rise) + '  ·  ☾ ' + hm(sun.set) : '';
+    $('night').className = 'night' + (isNightHour(d.getHours()) ? ' on' : '');
+    // Daily reload at 04:00 to pick up deploys and free memory on the old iPad.
+    if (d.getHours() === 4 && d.getMinutes() === 0 && Date.now() - BOOT > 3600e3) location.reload();
+    setTimeout(tickClock, 60000 - (d.getSeconds() * 1000 + d.getMilliseconds()) + 50);
+  }
+
+  /* ================= Weather (Open-Meteo) ================= */
+  var WX = {
+    0: ['Ciel dégagé', '☀️', '🌙'], 1: ['Plutôt dégagé', '🌤️', '🌙'], 2: ['Partiellement nuageux', '⛅', '☁️'], 3: ['Couvert', '☁️', '☁️'],
+    45: ['Brouillard', '🌫️', '🌫️'], 48: ['Brouillard givrant', '🌫️', '🌫️'],
+    51: ['Bruine légère', '🌦️', '🌧️'], 53: ['Bruine', '🌦️', '🌧️'], 55: ['Bruine forte', '🌧️', '🌧️'],
+    56: ['Bruine verglaçante', '🌧️', '🌧️'], 57: ['Bruine verglaçante', '🌧️', '🌧️'],
+    61: ['Pluie faible', '🌦️', '🌧️'], 63: ['Pluie', '🌧️', '🌧️'], 65: ['Forte pluie', '🌧️', '🌧️'],
+    66: ['Pluie verglaçante', '🌧️', '🌧️'], 67: ['Pluie verglaçante', '🌧️', '🌧️'],
+    71: ['Neige faible', '🌨️', '🌨️'], 73: ['Neige', '🌨️', '🌨️'], 75: ['Forte neige', '❄️', '❄️'], 77: ['Grains de neige', '🌨️', '🌨️'],
+    80: ['Averses', '🌦️', '🌧️'], 81: ['Averses', '🌧️', '🌧️'], 82: ['Fortes averses', '⛈️', '⛈️'],
+    85: ['Averses de neige', '🌨️', '🌨️'], 86: ['Averses de neige', '🌨️', '🌨️'],
+    95: ['Orage', '⛈️', '⛈️'], 96: ['Orage, grêle', '⛈️', '⛈️'], 99: ['Orage, grêle', '⛈️', '⛈️']
+  };
+  function wx(code, day) { var w = WX[code] || ['—', '·', '·']; return { label: w[0], ico: day === 0 ? w[2] : w[1] }; }
+
+  function loadWeather() {
+    var L = cfg.location;
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + L.lat + '&longitude=' + L.lon +
+      '&timezone=Europe%2FParis&forecast_days=6' +
+      '&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,precipitation' +
+      '&minutely_15=precipitation&forecast_minutely_15=12' +
+      '&hourly=temperature_2m,weather_code,precipitation_probability,is_day' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset';
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(renderWeather)
+      .catch(function (e) { $('wx').innerHTML = '<div class="muted">Météo indisponible (' + esc(e.message) + ')</div>'; });
+  }
+
+  function renderWeather(d) {
+    var now = new Date(), c = d.current, w = wx(c.weather_code, c.is_day), i, t;
+    $('now').innerHTML =
+      '<div class="ico">' + w.ico + '</div>' +
+      '<div class="t">' + Math.round(c.temperature_2m) + '°</div>' +
+      '<div class="d">' + esc(w.label) + '<br><span class="muted">Ressenti ' + Math.round(c.apparent_temperature) +
+      '° · Vent ' + Math.round(c.wind_speed_10m) + ' km/h</span></div>';
+    if (d.daily && d.daily.sunrise) sun = { rise: parseLocal(d.daily.sunrise[0]), set: parseLocal(d.daily.sunset[0]) };
+    $('ephem').textContent = sun ? '☀︎ ' + hm(sun.rise) + '  ·  ☾ ' + hm(sun.set) : '';
+
+    // rain, next 2 h in 15-min steps
+    var slots = [], m = d.minutely_15;
+    for (i = 0; m && i < m.time.length && slots.length < 8; i++) {
+      t = parseLocal(m.time[i]);
+      if (t.getTime() + 15 * 60e3 > now.getTime()) slots.push({ t: t, mm: m.precipitation[i] || 0 });
+    }
+    var first = null, max = 0;
+    slots.forEach(function (s) { if (s.mm >= 0.1 && !first) first = s; if (s.mm > max) max = s.mm; });
+    var rainTxt;
+    if (!slots.length) rainTxt = '<span class="muted">Pluie : pas de données</span>';
+    else if (!first) rainTxt = '☂︎ <b>Pas de pluie</b> <span class="muted">d’ici 2 h</span>';
+    else if (first === slots[0]) {
+      var stop = null; for (i = 1; i < slots.length; i++) if (slots[i].mm < 0.1) { stop = slots[i]; break; }
+      rainTxt = '☔ <b>Pluie en cours</b>' + (stop ? ' <span class="muted">jusqu’à ~' + hm(stop.t) + '</span>' : '');
+    } else rainTxt = '☔ <b>Pluie vers ' + hm(first.t) + '</b>';
+    var scale = Math.max(max, 2);
+    var bars = slots.map(function (s) {
+      var h = Math.min(100, s.mm / scale * 100);
+      return '<div><i class="' + (s.mm < 0.1 ? 'zero' : '') + '" style="height:' + (s.mm < 0.1 ? 0 : Math.max(12, h)) + '%"></i></div>';
+    }).join('');
+    var rainLbl = slots.length ? '<div class="rain-lbl"><span>' + hm(slots[0].t) + '</span><span>' +
+      hm(new Date(slots[slots.length - 1].t.getTime() + 15 * 60e3)) + '</span></div>' : '';
+
+    var hrs = [], H = d.hourly;
+    for (i = 0; i < H.time.length && hrs.length < 6; i++) {
+      t = parseLocal(H.time[i]);
+      if (t.getTime() + 3600e3 > now.getTime()) {
+        hrs.push('<div><div class="h">' + pad(t.getHours()) + 'h</div><div class="e">' + wx(H.weather_code[i], H.is_day[i]).ico +
+          '</div><div class="v">' + Math.round(H.temperature_2m[i]) + '°</div><div class="p">' +
+          (H.precipitation_probability[i] >= 20 ? H.precipitation_probability[i] + '%' : '') + '</div></div>');
+      }
+    }
+    var D = d.daily, days = [], df = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
+    for (i = 1; i < D.time.length && days.length < 5; i++) {
+      var dn = df.format(parseLocal(D.time[i])).replace('.', '');
+      days.push('<div><div class="h">' + dn.charAt(0).toUpperCase() + dn.slice(1) + '</div><div class="e">' +
+        wx(D.weather_code[i], 1).ico + '</div><div class="v"><b>' + Math.round(D.temperature_2m_max[i]) + '°</b> <span>' +
+        Math.round(D.temperature_2m_min[i]) + '°</span></div><div class="p">' +
+        (D.precipitation_probability_max[i] >= 20 ? D.precipitation_probability_max[i] + '%' : '') + '</div></div>');
+    }
+    $('wx').innerHTML =
+      '<div class="rain-head"><span>' + rainTxt + '</span><span class="muted small">' + hm(now) + '</span></div>' +
+      '<div class="rain">' + bars + '</div>' + rainLbl +
+      '<div class="hours">' + hrs.join('') + '</div>' +
+      '<div class="days">' + days.join('') + '</div>';
+  }
+
+  /* ================= PRIM: shared fetch, quota ================= */
+  function primFetch(path) {
+    if (DEMO) return Promise.resolve(demoData(path));
+    return fetch(cfg.primBase.replace(/\/+$/, '') + path, { headers: { apikey: cfg.primKey, Accept: 'application/json' }, cache: 'no-store' })
+      .then(function (r) {
+        var lim = r.headers.get('x-ratelimit-limit-day'), rem = r.headers.get('x-ratelimit-remaining-day');
+        if (lim && rem && path.indexOf('stop-monitoring') === 0) { quota.limit = +lim; quota.remaining = +rem; }
+        if (r.status === 401 || r.status === 403) throw new Error('clé PRIM refusée (' + r.status + ')');
+        if (r.status === 429) { var e = new Error('quota PRIM atteint pour aujourd’hui'); e.quota = true; throw e; }
+        if (!r.ok) throw new Error('PRIM HTTP ' + r.status);
+        return r.json();
+      }, function () { throw new Error('PRIM injoignable'); });
+  }
+
+  // Daily request budget for "Prochains passages", counted locally.
+  var quota = (function () {
+    var q = lsGet(QUOTA_STORE);
+    if (!q || q.day !== todayKey()) q = { day: todayKey(), n: 0, blocked: false };
+    return { day: q.day, n: q.n, blocked: q.blocked, limit: null, remaining: null };
+  })();
+  function quotaUse() {
+    if (quota.day !== todayKey()) { quota.day = todayKey(); quota.n = 0; quota.blocked = false; }
+    quota.n++;
+    lsSet(QUOTA_STORE, { day: quota.day, n: quota.n, blocked: quota.blocked });
+  }
+  function quotaLimit() { return quota.limit || +cfg.quota || 1000; }
+  function quotaOk() {
+    if (quota.day !== todayKey()) { quota.day = todayKey(); quota.n = 0; quota.blocked = false; }
+    if (quota.blocked) return false;
+    if (quota.remaining != null) return quota.remaining > 20;
+    return quota.n < quotaLimit() * 0.95;
+  }
+  // Spread the budget over the waking hours: seconds between two refreshes of the same stop.
+  function stopInterval() {
+    var n = Math.max(1, stopsCfg().length);
+    var activeH = ((cfg.night.from - cfg.night.to) + 24) % 24 || 24;
+    return Math.max(60, Math.ceil(n * activeH * 3600 / (quotaLimit() * 0.9)));
+  }
+
+  /* ================= Next departures (SIRI Lite stop-monitoring) ================= */
+  function stopsCfg() { return (cfg.stops || []).filter(function (s) { return s.name && s.ref; }); }
+
+  // Candidate MonitoringRefs for a stop: zone id, STIF ref, or a departs.leon.gp URL.
+  function stopRefs(ref) {
+    ref = String(ref || '').trim();
+    if (/^STIF:/.test(ref)) return [ref];
+    var dec = ref; try { dec = decodeURIComponent(ref); } catch (e) {}
+    var m;
+    if ((m = /StopPoint:Q:(\d+)/.exec(dec))) return ['STIF:StopPoint:Q:' + m[1] + ':'];
+    if ((m = /(?:monomodalStopPlace|StopArea:SP|stop_area[^\d]*)[:/](\d+)/.exec(dec))) return ['STIF:StopArea:SP:' + m[1] + ':'];
+    if ((m = /\/stop\/[^/\d]*(\d{3,7})/.exec(dec)) || (m = /\/(\d{3,7})(?:\/|$)/.exec(dec.replace(/C\d{5}/g, ''))) || (m = /^(\d{3,7})$/.exec(dec))) {
+      return ['STIF:StopArea:SP:' + m[1] + ':', 'STIF:StopPoint:Q:' + m[1] + ':'];
+    }
+    return [];
+  }
+  function stopLines(s) {
+    var ids = String(s.lines || '').match(/C\d{5}/g) || [];
+    if (!ids.length && /^https?:/.test(s.ref)) ids = String(s.ref).match(/C\d{5}/g) || [];
+    return ids;
+  }
+
+  var stopState = {}; // ref → { at, deps[], err, inflight, refIdx }
+
+  function siriVal(x) {
+    if (x == null) return '';
+    if (Array.isArray(x)) x = x[0];
+    if (x && typeof x === 'object') return x.value != null ? String(x.value) : '';
+    return String(x);
+  }
+
+  function parseVisits(json) {
+    var del = json && json.Siri && json.Siri.ServiceDelivery && json.Siri.ServiceDelivery.StopMonitoringDelivery;
+    del = del && del[0];
+    if (!del) throw new Error('réponse inattendue');
+    if (del.ErrorCondition || del.Status === false || del.Status === 'false') {
+      var e = new Error(siriVal(del.ErrorCondition && del.ErrorCondition.ErrorInformation && del.ErrorCondition.ErrorInformation.ErrorDescription) || 'arrêt inconnu');
+      e.badRef = true; throw e;
+    }
+    return (del.MonitoredStopVisit || []).map(function (v) {
+      var j = v.MonitoredVehicleJourney || {}, c = j.MonitoredCall || {};
+      var exp = c.ExpectedDepartureTime || c.ExpectedArrivalTime || c.AimedDepartureTime || c.AimedArrivalTime;
+      var aim = c.AimedDepartureTime || c.AimedArrivalTime;
+      return {
+        line: lineCode(siriVal(j.LineRef)),
+        dest: siriVal(c.DestinationDisplay) || siriVal(j.DestinationName) || '—',
+        t: exp ? new Date(exp).getTime() : 0,
+        delay: exp && aim ? Math.round((new Date(exp) - new Date(aim)) / 60000) : 0,
+        status: norm(c.DepartureStatus || c.ArrivalStatus),
+        atStop: c.VehicleAtStop === true,
+        platform: siriVal(c.ArrivalPlatformName) || siriVal(c.DeparturePlatformName),
+        mission: siriVal(j.JourneyNote) || siriVal(j.VehicleJourneyName)
+      };
+    }).filter(function (d) { return d.t; });
+  }
+
+  function loadStop(s, manual) {
+    var refs = stopRefs(s.ref), key = s.ref, st = stopState[key] || (stopState[key] = { at: 0, deps: [], err: '', refIdx: 0 });
+    if (!refs.length) { st.err = 'arrêt invalide'; renderCards(); return; }
+    if (st.inflight) return;
+    if (!DEMO && !cfg.primKey) return;
+    if (!DEMO && !quotaOk()) { st.err = 'quota du jour presque épuisé'; renderCards(); return; }
+    st.inflight = true; st.tried = Date.now();
+    if (!DEMO) quotaUse();
+    var ref = refs[Math.min(st.refIdx, refs.length - 1)];
+    primFetch('stop-monitoring?MonitoringRef=' + encodeURIComponent(ref)).then(function (json) {
+      st.deps = parseVisits(json); st.at = Date.now(); st.err = '';
+    }).catch(function (e) {
+      if (e.badRef && st.refIdx < refs.length - 1) { st.refIdx++; st.tried = 0; } // try the quay form next tick
+      if (e.quota) { quota.blocked = true; lsSet(QUOTA_STORE, { day: quota.day, n: quota.n, blocked: true }); }
+      st.err = e.message;
+    }).then(function () { st.inflight = false; renderCards(); });
+  }
+
+  function fmtMin(d, now) {
+    var min = Math.floor((d.t - now) / 60000);
+    if (d.status === 'cancelled') return { big: 'suppr.', cls: 'gone', unit: '' };
+    if (min >= 60) return { big: hm(new Date(d.t)), cls: d.delay >= 2 ? 'late' : '', unit: '' };
+    if (d.atStop || min < 1) return { big: d.atStop ? 'à quai' : '<1', cls: d.delay >= 2 ? 'late' : '', unit: d.atStop ? '' : 'min' };
+    return { big: String(min), cls: d.delay >= 2 ? 'late' : '', unit: 'min' };
+  }
+
+  function stopGroups(s, now) {
+    var st = stopState[s.ref], lines = stopLines(s);
+    if (!st) return [];
+    var keep = String(s.keep || '').split(',').map(norm).filter(Boolean);
+    var groups = {}, order = [];
+    st.deps.forEach(function (d) {
+      if (d.t < now - 30e3) return;
+      if (lines.length && lines.indexOf(d.line) < 0) return;
+      if (keep.length && !keep.some(function (k) { return norm(d.dest).indexOf(k) >= 0; })) return;
+      var k = d.line + '|' + norm(d.dest);
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(d);
+    });
+    return order.map(function (k) { return groups[k].sort(function (a, b) { return a.t - b.t; }); })
+      .sort(function (a, b) { return a[0].t - b[0].t; });
+  }
+
+  function renderCards() {
+    var box = $('cards'), now = Date.now(), list = stopsCfg(), iv = stopInterval() * 1000;
+    box.innerHTML = '';
+    if (!list.length) { box.appendChild(el('div', 'panel card', '<div class="none">Aucun arrêt configuré (⚙︎ Réglages).</div>')); return; }
+    list.forEach(function (s) {
+      var st = stopState[s.ref], card = el('div', 'panel card'), rows = '';
+      var groups = stopGroups(s, now);
+      var age = st && st.at ? Math.round((now - st.at) / 60000) : null;
+      var upd = !cfg.primKey && !DEMO ? '' : st && st.err ? '⚠︎ ' + esc(st.err) : age == null ? '…' : age < 1 ? 'à l’instant' : 'il y a ' + age + ' min';
+      var stale = st && st.at && now - st.at > 2 * iv + 60e3;
+
+      groups.slice(0, 3).forEach(function (g) {
+        var d = g[0], f = fmtMin(d, now);
+        var nxRaw = g.slice(1, 3).map(function (x) { return x.status === 'cancelled' ? null : fmtMin(x, now).big; });
+        var nx = g.slice(1, 3).map(function (x, i) { return nxRaw[i] == null ? '<s>' + hm(new Date(x.t)) + '</s>' : esc(nxRaw[i]); });
+        var sub = [];
+        if (d.platform) sub.push('voie ' + esc(d.platform));
+        if (d.mission && /^[A-Z]{4}$/.test(d.mission)) sub.push(esc(d.mission));
+        if (d.delay >= 2) sub.push('<span class="s-warn">retard +' + d.delay + ' min</span>');
+        rows += '<div class="dr">' + badge(lineCfg(d.line), d.line) +
+          '<div class="dd"><div class="dest">' + esc(d.dest) + '</div>' + (sub.length ? '<div class="sub">' + sub.join(' · ') + '</div>' : '') + '</div>' +
+          '<div class="tm"><b class="' + f.cls + '">' + esc(f.big) + '</b>' + (f.unit ? '<small>' + f.unit + '</small>' : '') +
+          (nx.length ? '<span class="nx">puis ' + nx.join(', ') + (/^\d+$/.test(nxRaw[nxRaw.length - 1]) ? ' min' : '') + '</span>' : '') + '</div></div>';
+      });
+      if (!rows) {
+        var why = !cfg.primKey && !DEMO ? 'Ajoutez une clé PRIM dans ⚙︎ Réglages.' :
+          st && st.at ? 'Aucun départ annoncé.' : st && st.err ? 'Départs indisponibles.' : 'Chargement…';
+        rows = '<div class="none">' + why + '</div>';
+      }
+      card.innerHTML = '<div class="ch"><span class="cn">' + esc(s.name) + '</span><span class="cu' + (stale ? ' stale' : '') + '">' + upd + '</span></div>' +
+        '<div class="rows">' + rows + '</div>';
+
+      // Citymapper-style warning for the lines served at this stop
+      stopLines(s).forEach(function (id) {
+        var ls = lineStatus[id];
+        if (!ls || !ls.level || !ls.active.length) return;
+        var w = el('button', 'warn l' + ls.level, '⚠︎ <span>' + esc(ls.active[0].title || 'Perturbation') + '</span>');
+        w.onclick = function (e) { e.stopPropagation(); openLine(id); };
+        card.appendChild(w);
+      });
+      card.onclick = function () { if (stopState[s.ref]) stopState[s.ref].tried = 0; loadStop(s, true); };
+      box.appendChild(card);
+    });
+  }
+
+  // Scheduler: each stop is refreshed every stopInterval() seconds (budget-driven).
+  function scheduleStops() {
+    if (document.hidden || (!cfg.primKey && !DEMO)) return;
+    if (isNightHour(new Date().getHours())) return;
+    var iv = stopInterval() * 1000, now = Date.now();
+    stopsCfg().forEach(function (s) {
+      var st = stopState[s.ref], last = st ? Math.max(st.at, st.tried || 0) : 0;
+      if (now - last >= iv) loadStop(s);
+    });
+  }
+
+  /* ================= Line status (PRIM disruptions bulk) ================= */
+  var SEV = { BLOCKING: 3, DISTURBED: 2, INFORMATION: 1 };
+  var lineStatus = {}; // line id → { active[], upcoming[], level, found }
+  var primInfo = { at: null, err: '' };
+
+  function sevOf(dis) {
+    var s = String(dis.severity || '').toUpperCase();
+    if (SEV[s]) return SEV[s];
+    if (/BLOQ|BLOCK/.test(s)) return 3;
+    if (/PERTURB|DISTURB/.test(s)) return 2;
+    return 1;
+  }
+  function periodsOf(dis) { return (dis.applicationPeriods || []).map(function (p) { return { b: parsePrim(p.begin), e: parsePrim(p.end) }; }); }
+  function isActive(dis, now) {
+    var ps = periodsOf(dis);
+    return !ps.length || ps.some(function (p) { return (!p.b || p.b <= now) && (!p.e || p.e >= now); });
+  }
+  function nextStart(dis, now) {
+    var best = null;
+    periodsOf(dis).forEach(function (p) { if (p.b && p.b > now && (!best || p.b < best)) best = p.b; });
+    return best;
+  }
+
+  function loadStatus() {
+    if (!cfg.primKey && !DEMO) { primInfo = { at: null, err: '' }; renderStrip(); renderCards(); return Promise.resolve(); }
+    return primFetch('disruptions_bulk/disruptions/v2').then(function (data) {
+      var now = new Date(), byId = {};
+      (data.disruptions || []).forEach(function (d) { byId[d.id] = d; });
+      lineStatus = {};
+      cfg.lines.forEach(function (lc) {
+        var ids = {}, found = false;
+        (data.lines || []).forEach(function (l) {
+          if (lineCode(l.id) !== lc.id) return;
+          found = true;
+          (l.impactedObjects || []).forEach(function (o) { (o.disruptionIds || []).forEach(function (id) { ids[id] = 1; }); });
+        });
+        var active = [], upcoming = [];
+        Object.keys(ids).forEach(function (id) {
+          var d = byId[id]; if (!d) return;
+          if (isActive(d, now)) active.push(d);
+          else { var ns = nextStart(d, now); if (ns && ns - now < 7 * 864e5) { d._next = ns; upcoming.push(d); } }
+        });
+        active.sort(function (a, b) { return sevOf(b) - sevOf(a); });
+        upcoming.sort(function (a, b) { return a._next - b._next; });
+        lineStatus[lc.id] = {
+          active: active, upcoming: upcoming, found: found,
+          level: active.reduce(function (m, d) { return Math.max(m, sevOf(d)); }, 0)
+        };
+      });
+      primInfo = { at: now, err: '' };
+    }).catch(function (e) { primInfo.err = e.message || String(e); })
+      .then(function () { renderStrip(); renderCards(); });
+  }
+
+  function statusText(id) {
+    var s = lineStatus[id];
+    if (!s) return ['s-unk', 'État inconnu'];
+    if (!s.found && !s.active.length) return ['s-ok', 'Trafic normal'];  // lines without disruption may be absent from the feed
+    if (s.level === 3) return ['s-bad', 'Trafic interrompu'];
+    if (s.level === 2) return ['s-warn', 'Trafic perturbé'];
+    if (s.level === 1) {
+      var works = s.active.some(function (d) { return norm(d.cause) === 'works' || /travaux/i.test(d.title || ''); });
+      return ['s-info', works ? 'Travaux' : 'Information'];
+    }
+    return ['s-ok', 'Trafic normal'];
+  }
+
+  function renderStrip() {
+    var box = $('strip'); box.innerHTML = '';
+    cfg.lines.forEach(function (lc) {
+      var st = statusText(lc.id);
+      var c = el('button', 'chip', badge(lc) + '<span class="dot ' + (lineStatus[lc.id] ? st[0] : 's-unk') + '"></span>');
+      c.onclick = function () { openLine(lc.id); };
+      box.appendChild(c);
+    });
+    if (!cfg.lines.length) box.appendChild(el('span', 'muted small', 'Aucune ligne suivie (⚙︎ Réglages)'));
+    var iv = stopInterval(), meta = '';
+    if (!cfg.primKey && !DEMO) meta = 'Clé PRIM requise (⚙︎)';
+    else {
+      meta = primInfo.err ? '⚠︎ Trafic : ' + esc(primInfo.err) : primInfo.at ? 'Trafic ' + hm(primInfo.at) : 'Trafic…';
+      meta += '<br>Départs toutes les ' + (iv < 90 ? iv + ' s' : Math.round(iv / 60) + ' min') + ' · touchez une carte pour actualiser';
+      if (DEMO) meta = 'MODE DÉMO — données fictives<br>' + meta;
+    }
+    box.appendChild(el('div', 'meta', meta));
+  }
+
+  function htmlToText(h) {
+    var s = String(h || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d)>/gi, '\n').replace(/<li[^>]*>/gi, '• ');
+    var doc = new DOMParser().parseFromString(s, 'text/html');
+    return (doc.body.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function fmtPeriod(d) {
+    var f = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return periodsOf(d).slice(0, 3).map(function (p) { return (p.b ? f.format(p.b) : '…') + ' → ' + (p.e ? f.format(p.e) : '…'); }).join('<br>');
+  }
+  function disHtml(d) {
+    return '<div class="dis"><h4>' + esc(d.title || 'Information') + '</h4><div class="when">' + fmtPeriod(d) +
+      '</div><p>' + esc(htmlToText(d.message)) + '</p></div>';
+  }
+  function openLine(id) {
+    var lc = lineCfg(id) || { label: id }, s = lineStatus[id], h = '';
+    $('lmTitle').innerHTML = badge(lc) + ' <span>' + esc(statusText(id)[1]) + '</span>';
+    if (!s) h = '<p class="muted">' + esc(primInfo.err || (cfg.primKey || DEMO ? 'Pas encore de données.' : 'Ajoutez une clé PRIM dans ⚙︎ Réglages.')) + '</p>';
+    else {
+      if (s.active.length) h += '<div class="sec">En cours</div>' + s.active.map(disHtml).join('');
+      if (s.upcoming.length) h += '<div class="sec">À venir (7 jours)</div>' + s.upcoming.map(disHtml).join('');
+      if (!h) h = '<p class="muted">Aucune perturbation signalée.</p>';
+    }
+    $('lmBody').innerHTML = h;
+    $('lineModal').classList.add('on');
+  }
+
+  /* ================= Demo data (?demo) ================= */
+  function demoData(path) {
+    var now = Date.now();
+    function iso(min) { return new Date(now + min * 60000).toISOString(); }
+    if (path.indexOf('disruptions') === 0) {
+      var d = new Date(now - 3600e3), e = new Date(now + 5 * 3600e3);
+      function p(x) { return x.getFullYear() + pad(x.getMonth() + 1) + pad(x.getDate()) + 'T' + pad(x.getHours()) + pad(x.getMinutes()) + '00'; }
+      var l0 = cfg.lines[0] || { id: 'C00000', label: '?' }, l1 = cfg.lines[1] || l0;
+      return {
+        lines: [{ id: 'line:IDFM:' + l0.id, impactedObjects: [{ disruptionIds: ['d1'] }] },
+                { id: 'line:IDFM:' + l1.id, impactedObjects: [{ disruptionIds: ['d2'] }] }],
+        disruptions: [
+          { id: 'd1', severity: 'DISTURBED', cause: 'DISTURBANCE', title: l0.label + ' : trafic perturbé (incident technique)', message: '<p>Trafic perturbé.</p><p>Reprise estimée dans 1 h.</p>', applicationPeriods: [{ begin: p(d), end: p(e) }] },
+          { id: 'd2', severity: 'INFORMATION', cause: 'WORKS', title: l1.label + ' : travaux, service réduit après 22h', message: 'Travaux.', applicationPeriods: [{ begin: p(d), end: p(e) }] }
+        ]
+      };
+    }
+    var zone = (/(\d{3,7})/.exec(decodeURIComponent(path)) || [])[1], visits = [], seed = +zone || 7;
+    var stop = stopsCfg().filter(function (s) { return String(s.ref).indexOf(zone) >= 0; })[0];
+    (stop ? stopLines(stop) : []).forEach(function (line, li) {
+      ['Terminus Nord', 'Terminus Sud'].forEach(function (dest, di) {
+        for (var i = 0; i < 3; i++) {
+          var m = (seed * 3 + li * 5 + di * 4) % 9 + 1 + i * (6 + li * 3);
+          visits.push({ MonitoredVehicleJourney: {
+            LineRef: { value: 'STIF:Line::' + line + ':' }, DestinationName: [{ value: dest }],
+            MonitoredCall: { ExpectedDepartureTime: iso(m + (i === 1 && di === 0 ? 3 : 0)), AimedDepartureTime: iso(m),
+              DepartureStatus: li === 0 && di === 1 && i === 1 ? 'cancelled' : 'onTime' }
+          } });
+        }
+      });
+    });
+    return { Siri: { ServiceDelivery: { StopMonitoringDelivery: [{ Status: 'true', MonitoredStopVisit: visits }] } } };
+  }
+
+  /* ================= Media: webcam / traffic ================= */
+  function youtubeEmbed(link) {
+    link = String(link || '').trim();
+    if (!link) return '';
+    var m, q = 'autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1';
+    if ((m = /(?:channel\/|channel=)(UC[\w-]{20,})/.exec(link))) return 'https://www.youtube-nocookie.com/embed/live_stream?channel=' + m[1] + '&' + q;
+    if ((m = /(?:youtu\.be\/|[?&]v=|\/embed\/|\/live\/|\/shorts\/)([\w-]{11})/.exec(link))) return 'https://www.youtube-nocookie.com/embed/' + m[1] + '?' + q;
+    if (/^[\w-]{11}$/.test(link)) return 'https://www.youtube-nocookie.com/embed/' + link + '?' + q;
+    return '';
+  }
+  function mapCentre() { var t = cfg.traffic; return t.lat != null && t.lon != null ? t : { lat: cfg.location.lat, lon: cfg.location.lon, zoom: t.zoom }; }
+  function wazeUrl() { var t = mapCentre(); return 'https://embed.waze.com/iframe?zoom=' + (t.zoom || 14) + '&lat=' + t.lat + '&lon=' + t.lon + '&ct=livemap'; }
+  function routeUrl() {
+    var q = 'dirflg=d';
+    if (cfg.home) q += '&saddr=' + encodeURIComponent(cfg.home);
+    q += '&daddr=' + (cfg.destination ? encodeURIComponent(cfg.destination) : mapCentre().lat + ',' + mapCentre().lon);
+    return 'https://maps.apple.com/?' + q;
+  }
+  function renderMediaTabs() {
+    var tabs = $('mediaTabs'); tabs.innerHTML = '';
+    [['cam', '📷 Paris'], ['traffic', '🚗 Trafic']].forEach(function (t) {
+      var b = el('button', 'tab' + (ui.media === t[0] ? ' on' : ''), t[1]);
+      b.onclick = function () { ui.media = t[0]; lsSet(UI_STORE, ui); renderMediaTabs(); showMedia(); };
+      tabs.appendChild(b);
+    });
+    if (ui.media === 'traffic') {
+      var a = el('a', 'tab open', 'Itinéraire ↗'); a.href = routeUrl(); a.target = '_blank'; a.rel = 'noopener';
+      tabs.appendChild(a);
+    }
+  }
+  // Only the visible media iframe is loaded — keeps the A9X cool.
+  function showMedia(force) {
+    var box = $('mediaFrame'), src = ui.media === 'cam' ? youtubeEmbed(cfg.webcam) : wazeUrl();
+    if (!src) {
+      box.innerHTML = '<div class="empty"><div style="font-size:30px">📷</div><div>Aucune webcam configurée.</div><div class="small">Collez un lien YouTube dans ⚙︎ Réglages.</div></div>';
+      return;
+    }
+    var f = box.querySelector('iframe');
+    if (!f || force) {
+      box.innerHTML = '';
+      f = el('iframe');
+      f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+      f.setAttribute('allowfullscreen', '');
+      box.appendChild(f);
+    }
+    if (f.getAttribute('src') !== src) f.setAttribute('src', src);
+  }
+
+  /* ================= Home buttons (Apple Shortcuts) ================= */
+  function renderHome() {
+    var box = $('home'); box.innerHTML = '';
+    (cfg.buttons || []).filter(function (b) { return b.label && b.shortcut; }).forEach(function (b) {
+      var x = el('button', 'hb', esc(b.label));
+      x.onclick = function () {
+        x.classList.add('sent'); setTimeout(function () { x.classList.remove('sent'); }, 1500);
+        var back = location.href.split('#')[0];
+        location.href = 'shortcuts://x-callback-url/run-shortcut?name=' + encodeURIComponent(b.shortcut) +
+          '&x-success=' + encodeURIComponent(back) + '&x-error=' + encodeURIComponent(back) + '&x-cancel=' + encodeURIComponent(back);
+      };
+      box.appendChild(x);
+    });
+    box.style.display = box.children.length ? '' : 'none';
+  }
+
+  /* ================= Settings ================= */
+  var STOP_KEYS = ['name', 'ref', 'lines', 'keep'], BTN_KEYS = ['label', 'shortcut'], LINE_KEYS = ['label', 'id', 'color', 'fg'];
+
+  function fillSettings(c) {
+    $('sKey').value = c.primKey || '';
+    $('sQuota').value = c.quota || 1000;
+    $('sStops').value = toRows(c.stops, STOP_KEYS);
+    $('sLines').value = toRows(c.lines, LINE_KEYS);
+    $('sCam').value = c.webcam || '';
+    $('sLoc').value = c.location.lat + ', ' + c.location.lon;
+    $('sMap').value = c.traffic.lat != null ? [c.traffic.lat, c.traffic.lon, c.traffic.zoom].join(', ') : '';
+    $('sHome').value = c.home || '';
+    $('sDest').value = c.destination || '';
+    $('sButtons').value = toRows(c.buttons, BTN_KEYS);
+    $('sPrimBase').value = c.primBase || '';
+  }
+  function readSettings() {
+    var c = deepMerge(cfg, {});
+    c.primKey = $('sKey').value.trim();
+    c.quota = Math.max(100, parseInt($('sQuota').value, 10) || 1000);
+    c.stops = pipeRows($('sStops').value, STOP_KEYS);
+    var lines = pipeRows($('sLines').value, LINE_KEYS).filter(function (l) { return lineCode(l.id); });
+    lines.forEach(function (l) { l.id = lineCode(l.id); });
+    c.lines = lines;
+    c.webcam = $('sCam').value.trim();
+    var loc = $('sLoc').value.split(',').map(parseFloat);
+    if (isFinite(loc[0]) && isFinite(loc[1])) c.location = { lat: loc[0], lon: loc[1] };
+    var mp = $('sMap').value.split(',').map(parseFloat);
+    c.traffic = isFinite(mp[0]) && isFinite(mp[1]) ? { lat: mp[0], lon: mp[1], zoom: isFinite(mp[2]) ? mp[2] : 14 } : { lat: null, lon: null, zoom: 14 };
+    c.home = $('sHome').value.trim();
+    c.destination = $('sDest').value.trim();
+    c.buttons = pipeRows($('sButtons').value, BTN_KEYS);
+    c.primBase = $('sPrimBase').value.trim() || DEFAULTS.primBase;
+    return c;
+  }
+  function msg(t, cls) { $('sMsg').className = 'msg ' + (cls || ''); $('sMsg').textContent = t; }
+
+  $('gear').onclick = function () { fillSettings(cfg); $('sJson').value = ''; msg(''); $('setModal').classList.add('on'); };
+  $('sSave').onclick = function () {
+    cfg = readSettings();
+    if (!lsSet(STORE, cfg)) { msg('Impossible d’enregistrer (stockage indisponible).', 's-bad'); return; }
+    $('setModal').classList.remove('on');
+    stopState = {};
+    renderMediaTabs(); showMedia(true); renderHome(); renderStrip(); renderCards();
+    loadStatus(); loadWeather(); scheduleStops();
+  };
+  $('sTest').onclick = function () {
+    var c = readSettings(), keep = cfg, s = (c.stops || [])[0];
+    if (!c.primKey) { msg('Entrez d’abord une clé.', 's-warn'); return; }
+    msg('Test en cours…');
+    cfg = c;
+    var p1 = primFetch('disruptions_bulk/disruptions/v2').then(function (d) { return 'Info trafic OK (' + (d.disruptions || []).length + ' perturbations)'; }, function (e) { return 'Info trafic : ' + e.message; });
+    var p2 = s ? primFetch('stop-monitoring?MonitoringRef=' + encodeURIComponent(stopRefs(s.ref)[0] || '')).then(function (j) {
+      return 'Prochains passages OK (' + parseVisits(j).length + ' départs à ' + s.name + ')';
+    }).catch(function (e) { return 'Prochains passages : ' + e.message; }) : Promise.resolve('');
+    if (s) quotaUse();
+    cfg = keep;
+    Promise.all([p1, p2]).then(function (r) { msg(r.filter(Boolean).join(' — ')); });
+  };
+  $('sReload').onclick = function () { location.reload(); };
+  $('sExport').onclick = function () { $('sJson').value = JSON.stringify(readSettings()); $('sJson').select(); msg('Copiez ce texte (contient la clé PRIM).'); };
+  $('sImport').onclick = function () {
+    try { fillSettings(loadConfig(JSON.parse($('sJson').value))); msg('Importé — vérifiez puis « Enregistrer ».', 's-ok'); }
+    catch (e) { msg('Texte invalide.', 's-bad'); }
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('.modal'), function (m) {
+    m.addEventListener('click', function (e) { if (e.target === m || e.target.hasAttribute('data-close')) m.classList.remove('on'); });
+  });
+
+  /* ================= Boot & refresh loops ================= */
+  tickClock();
+  renderMediaTabs(); showMedia();
+  renderHome();
+  renderStrip(); renderCards();
+
+  var last = { wx: 0, st: 0 };
+  function refreshIfStale() {
+    if (document.hidden) return;
+    var t = Date.now(), night = isNightHour(new Date().getHours());
+    if (t - last.wx > 15 * 60e3) { last.wx = t; loadWeather(); }
+    if (t - last.st > (night ? 30 : 5) * 60e3) { last.st = t; loadStatus(); }
+  }
+  refreshIfStale();
+  setInterval(refreshIfStale, 60e3);
+  setTimeout(scheduleStops, 500);
+  setInterval(scheduleStops, 10e3);                                   // fetch whichever stop is due
+  setInterval(function () { if (!document.hidden) renderCards(); }, 20e3); // countdowns tick locally
+  setInterval(function () { if (!document.hidden && ui.media === 'cam') showMedia(true); }, 30 * 60e3);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { refreshIfStale(); renderCards(); scheduleStops(); } });
+})();
+</script>
+</body>
+</html>
