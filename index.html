@@ -491,7 +491,7 @@
   /* ================= PRIM: shared fetch, quota ================= */
   function primFetch(path) {
     if (DEMO) return Promise.resolve(demoData(path));
-    return fetch(cfg.primBase.replace(/\/+$/, '') + path, { headers: { apikey: cfg.primKey, Accept: 'application/json' }, cache: 'no-store' })
+    return fetch(cfg.primBase.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, ''), { headers: { apikey: cfg.primKey, Accept: 'application/json' }, cache: 'no-store' })
       .then(function (r) {
         var lim = r.headers.get('x-ratelimit-limit-day'), rem = r.headers.get('x-ratelimit-remaining-day');
         if (lim && rem && path.indexOf('stop-monitoring') === 0) { quota.limit = +lim; quota.remaining = +rem; }
@@ -499,7 +499,7 @@
         if (r.status === 429) { var e = new Error('quota PRIM atteint pour aujourd’hui'); e.quota = true; throw e; }
         if (!r.ok) throw new Error('PRIM HTTP ' + r.status);
         return r.json();
-      }, function () { throw new Error('PRIM injoignable'); });
+      }, function () { throw new Error('PRIM injoignable (réseau, ou adresse de l’API incorrecte)'); });
   }
 
   // Daily request budget for "Prochains passages", counted locally.
@@ -910,7 +910,7 @@
   }
   function readSettings() {
     var c = deepMerge(cfg, {});
-    c.primKey = $('sKey').value.trim();
+    c.primKey = $('sKey').value.replace(/\s+/g, '');
     c.quota = Math.max(100, parseInt($('sQuota').value, 10) || 1000);
     c.stops = pipeRows($('sStops').value, STOP_KEYS);
     var lines = pipeRows($('sLines').value, LINE_KEYS).filter(function (l) { return lineCode(l.id); });
